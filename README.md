@@ -24,14 +24,14 @@ A simple Python project to detect faces using OpenCV’s Haar Cascades. This pro
    ```bash
    git clone https://github.com/Moncef-Bj/face-detection-opecv.git
    cd face-detection-opencv
-   
+   ```
 2. **Install the required packages:**
    ```bash
    python -m venv venv
    source venv/bin/activate    # (Linux/Mac)
    venv\Scripts\activate       # (Windows)
    pip install opencv-python
-
+   ```
 4. **Ensure the Haar Cascade file is present:**
  
    The file haarcascade_frontalface_default.xml should be located in the same directory as your script.
@@ -44,6 +44,7 @@ There are two primary modes: image mode and webcam mode.
    
   ```bash
   python face_detection.py --image path/to/your/image.jpg
+   ```
 
 -Replace path/to/your/image.jpg with an actual image file path.
 
@@ -55,6 +56,7 @@ There are two primary modes: image mode and webcam mode.
 
    ```bash
     python face_detection.py
+   ```
 
  -This uses your computer’s default webcam.
 
