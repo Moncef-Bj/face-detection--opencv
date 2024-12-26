@@ -42,8 +42,8 @@ There are two primary modes: image mode and webcam mode.
 
 1. **Detect Faces in an Image**:
    
- ```bash
- python face_detection.py --image path/to/your/image.jpg
+  ```bash
+  python face_detection.py --image path/to/your/image.jpg
 
  -Replace path/to/your/image.jpg with an actual image file path.
 
