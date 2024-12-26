@@ -7,8 +7,7 @@ A simple Python project to detect faces using OpenCV’s Haar Cascades. This pro
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Examples](#examples)
-- [License](#license)
+
 
 ## Features
 - Detects faces in images using `haarcascade_frontalface_default.xml`.
@@ -34,7 +33,7 @@ A simple Python project to detect faces using OpenCV’s Haar Cascades. This pro
    pip install opencv-python
 
 4. **Ensure the Haar Cascade file is present:**
-5. 
+ 
    The file haarcascade_frontalface_default.xml should be located in the same directory as your script.
 
 ## Usage ##
@@ -42,6 +41,7 @@ A simple Python project to detect faces using OpenCV’s Haar Cascades. This pro
 There are two primary modes: image mode and webcam mode.
 
 1. **Detect Faces in an Image**:
+   
  ```bash
  python face_detection.py --image path/to/your/image.jpg
 
@@ -53,12 +53,13 @@ There are two primary modes: image mode and webcam mode.
 
 
 2. **Detect Faces via Webcam**:
+
    ```bash
     python face_detection.py
 
-   -This uses your computer’s default webcam.
+ -This uses your computer’s default webcam.
 
-   -Press q to exit the webcam window.
+ -Press q to exit the webcam window.
 
  
 
