@@ -45,14 +45,13 @@ There are two primary modes: image mode and webcam mode.
   ```bash
   python face_detection.py --image path/to/your/image.jpg
 
- -Replace path/to/your/image.jpg with an actual image file path.
+-Replace path/to/your/image.jpg with an actual image file path.
 
- -The script will open a window showing the detected faces with bounding boxes.
+-The script will open a window showing the detected faces with bounding boxes.
 
- -Close the window or press a key to exit.
+-Close the window or press a key to exit.
 
-
-2. **Detect Faces via Webcam**:
+2.**Detect Faces via Webcam** :
 
    ```bash
     python face_detection.py
