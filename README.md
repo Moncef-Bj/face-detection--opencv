@@ -30,7 +30,7 @@ A simple Python project to detect faces using OpenCV’s Haar Cascades. This pro
    python -m venv venv
    source venv/bin/activate    # (Linux/Mac)
    venv\Scripts\activate       # (Windows)
-   pip install opencv-python
+   pip install -r requirements.txt
    ```
 4. **Ensure the Haar Cascade file is present:**
  
