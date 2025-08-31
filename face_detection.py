@@ -1,55 +1,60 @@
 import cv2
-import sys
 import argparse
 import os
 
 def parse_arguments():
-    """
-    Command line arguments:
-    --image <path>: Path to an image file to detect faces on
-    --cascade <path>: Path to the Haar cascade file (default: haarcascade_frontalface_default.xml)
-    """
     parser = argparse.ArgumentParser(description="Simple face detection using OpenCV.")
     parser.add_argument("--image", type=str, default=None,
                         help="Path to an image file. If not provided, webcam will be used.")
+    parser.add_argument("--output", type=str, default=None,
+                        help="Path to save annotated image (headless mode if set).")
     parser.add_argument("--cascade", type=str, default="haarcascade_frontalface_default.xml",
                         help="Path to Haar cascade file.")
+    parser.add_argument("--scale", type=float, default=1.2,
+                        help="Scale factor for detectMultiScale (e.g., 1.1–1.3).")
+    parser.add_argument("--neighbors", type=int, default=8,
+                        help="minNeighbors for detectMultiScale (higher = stricter).")
+    parser.add_argument("--min-size", type=int, default=30,
+                        help="Minimum face size in pixels.")
     return parser.parse_args()
 
-def detect_faces_in_image(image_path, cascade_path):
-    """
-    Detect faces in a static image.
-    """
-    # Read the image
+def resolve_cascade(cascade_arg: str) -> str:
+    if os.path.exists(cascade_arg):
+        return cascade_arg
+    return os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+
+def detect_faces_in_image(image_path, cascade_path, output_path=None,
+                          scale=1.2, neighbors=8, min_size=30):
     image = cv2.imread(image_path)
     if image is None:
         print(f"Could not read image from {image_path}")
         return
-
-    # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Optionnel : améliore le contraste
+    # gray = cv2.equalizeHist(gray)
 
-    # Load the Haar Cascade
     face_cascade = cv2.CascadeClassifier(cascade_path)
-
-    # Perform face detection
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
+    faces = face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=scale,
+        minNeighbors=neighbors,
+        minSize=(min_size, min_size),
+    )
     print(f"Number of faces detected: {len(faces)}")
 
-    # Draw rectangles around each face
     for (x, y, w, h) in faces:
         cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-    # Show the result
-    cv2.imshow("Detected Faces", image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    if output_path:
+        cv2.imwrite(output_path, image)
+        print(f"Saved: {output_path}")
+    else:
+        cv2.imshow("Detections", image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
-def detect_faces_from_webcam(cascade_path):
-    """
-    Detect faces in real-time using the default webcam.
-    """
+def detect_faces_from_webcam(cascade_path, output_path=None,
+                             scale=1.2, neighbors=8, min_size=30):
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("Could not access the webcam.")
@@ -57,25 +62,38 @@ def detect_faces_from_webcam(cascade_path):
 
     face_cascade = cv2.CascadeClassifier(cascade_path)
 
+    # Headless: capture 1 frame, annote, save, exit
+    if output_path:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to grab frame from webcam.")
+        else:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(
+                gray, scaleFactor=scale, minNeighbors=neighbors,
+                minSize=(min_size, min_size)
+            )
+            for (x, y, w, h) in faces:
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.imwrite(output_path, frame)
+            print(f"Saved: {output_path}")
+        cap.release()
+        return
+
+    # GUI branch
     while True:
         ret, frame = cap.read()
         if not ret:
             print("Failed to grab frame from webcam.")
             break
-
-        # Convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        # Detect faces
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-        # Draw bounding boxes
+        faces = face_cascade.detectMultiScale(
+            gray, scaleFactor=scale, minNeighbors=neighbors,
+            minSize=(min_size, min_size)
+        )
         for (x, y, w, h) in faces:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
         cv2.imshow("Webcam Face Detection", frame)
-
-        # Press 'q' to exit
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
@@ -84,17 +102,18 @@ def detect_faces_from_webcam(cascade_path):
 
 def main():
     args = parse_arguments()
-
-    # Check if cascade file exists
-    if not os.path.exists(args.cascade):
-        print(f"Haar cascade file not found: {args.cascade}")
-        print("Download it from: https://github.com/opencv/opencv/tree/master/data/haarcascades")
-        sys.exit(1)
+    cascade_path = resolve_cascade(args.cascade)
 
     if args.image:
-        detect_faces_in_image(args.image, args.cascade)
+        detect_faces_in_image(
+            args.image, cascade_path, args.output,
+            scale=args.scale, neighbors=args.neighbors, min_size=args.min_size
+        )
     else:
-        detect_faces_from_webcam(args.cascade)
+        detect_faces_from_webcam(
+            cascade_path, args.output,
+            scale=args.scale, neighbors=args.neighbors, min_size=args.min_size
+        )
 
 if __name__ == "__main__":
     main()
