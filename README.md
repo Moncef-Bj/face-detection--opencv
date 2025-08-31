@@ -23,7 +23,7 @@ A simple Python project to detect faces using OpenCV’s Haar Cascades. This pro
 1. **Clone or download** this repository:
    ```bash
    git clone https://github.com/Moncef-Bj/face-detection--opencv.git
-   cd face-detection-opencv
+   cd face-detection--opencv
    ```
 2. **Install the required packages:**
    ```bash
