@@ -42,15 +42,18 @@ There are two primary modes: image mode and webcam mode.
 
 1. **Detect Faces in an Image**:
    
-  ```bash
-  python face_detection.py --image path/to/your/image.jpg
-   ```
+## Exemple rapide (Apollo 11, couleur)
 
--Replace path/to/your/image.jpg with an actual image file path.
+<p align="center">
+  <img src="assets/images/apollo11_crew.jpg" alt="Apollo 11 crew (NASA)" width="70%">
+</p>
 
--The script will open a window showing the detected faces with bounding boxes.
-
--Close the window or press a key to exit.
+Exécuter la détection (WSL, mode headless) :
+```bash
+python face_detection.py \
+  --image assets/images/apollo11_crew.jpg \
+  --output assets/images/apollo11_detected.jpg \
+  --scale 1.2 --neighbors 8 --min-size 30
 
 2.**Detect Faces via Webcam** :
 
