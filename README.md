@@ -54,10 +54,11 @@ python face_detection.py \
   --image assets/images/apollo11_crew.jpg \
   --output assets/images/apollo11_detected.jpg \
   --scale 1.2 --neighbors 8 --min-size 30
+```
 
-2.**Detect Faces via Webcam** :
+2. **Detect Faces via Webcam**:
 
-   ```bash
+```bash
     python face_detection.py
    ```
 
