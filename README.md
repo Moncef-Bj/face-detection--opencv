@@ -45,7 +45,8 @@ There are two primary modes: image mode and webcam mode.
 ## Exemple rapide (Apollo 11, couleur)
 
 <p align="center">
-  <img src="assets/images/apollo11_crew.jpg" alt="Apollo 11 crew (NASA)" width="70%">
+  <img src="assets/images/apollo11_crew.jpg" alt="Input" width="45%">
+  <img src="assets/images/apollo11_detected.jpg" alt="Output" width="45%">
 </p>
 
 Exécuter la détection (WSL, mode headless) :
