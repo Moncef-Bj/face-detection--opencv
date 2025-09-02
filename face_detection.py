@@ -1,119 +1,238 @@
+import os
 import cv2
 import argparse
-import os
+from pathlib import Path
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description="Simple face detection using OpenCV.")
-    parser.add_argument("--image", type=str, default=None,
-                        help="Path to an image file. If not provided, webcam will be used.")
-    parser.add_argument("--output", type=str, default=None,
-                        help="Path to save annotated image (headless mode if set).")
-    parser.add_argument("--cascade", type=str, default="haarcascade_frontalface_default.xml",
-                        help="Path to Haar cascade file.")
-    parser.add_argument("--scale", type=float, default=1.2,
-                        help="Scale factor for detectMultiScale (e.g., 1.1–1.3).")
-    parser.add_argument("--neighbors", type=int, default=8,
-                        help="minNeighbors for detectMultiScale (higher = stricter).")
-    parser.add_argument("--min-size", type=int, default=30,
-                        help="Minimum face size in pixels.")
-    return parser.parse_args()
+def validate_image_file(file_path):
+    """Validate image file before processing"""
+    if not file_path or not os.path.exists(file_path):
+        raise FileNotFoundError(f"Image file not found: {file_path}")
+    
+    # Check file extension
+    valid_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
+    file_ext = Path(file_path).suffix.lower()
+    if file_ext not in valid_extensions:
+        raise ValueError(f"Unsupported file format: {file_ext}")
+    
+    # Check file size (prevent memory exhaustion)
+    file_size = os.path.getsize(file_path)
+    max_size = 50 * 1024 * 1024  # 50MB limit
+    if file_size > max_size:
+        raise ValueError(f"File too large: {file_size/1024/1024:.1f}MB (max: 50MB)")
+    
+    return True
 
-def resolve_cascade(cascade_arg: str) -> str:
-    if os.path.exists(cascade_arg):
-        return cascade_arg
-    return os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+def validate_output_path(output_path):
+    """Validate output path and prevent overwriting"""
+    if os.path.exists(output_path):
+        response = input(f"File {output_path} exists. Overwrite? (y/n): ")
+        if response.lower() != 'y':
+            return False
+    
+    # Ensure output directory exists
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    
+    return True
+2. Improved Error Handling & Resource Management
+pythonimport logging
+from contextlib import contextmanager
 
-def detect_faces_in_image(image_path, cascade_path, output_path=None,
-                          scale=1.2, neighbors=8, min_size=30):
-    image = cv2.imread(image_path)
-    if image is None:
-        print(f"Could not read image from {image_path}")
-        return
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # Optionnel : améliore le contraste
-    # gray = cv2.equalizeHist(gray)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('face_detection.log'),
+        logging.StreamHandler()
+    ]
+)
 
-    face_cascade = cv2.CascadeClassifier(cascade_path)
-    faces = face_cascade.detectMultiScale(
-        gray,
-        scaleFactor=scale,
-        minNeighbors=neighbors,
-        minSize=(min_size, min_size),
-    )
-    print(f"Number of faces detected: {len(faces)}")
+@contextmanager
+def safe_video_capture(camera_index=0):
+    """Context manager for safe camera resource handling"""
+    cap = None
+    try:
+        cap = cv2.VideoCapture(camera_index)
+        if not cap.isOpened():
+            raise RuntimeError(f"Cannot access camera {camera_index}")
+        
+        # Set reasonable resolution to prevent memory issues
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        
+        yield cap
+    except Exception as e:
+        logging.error(f"Camera error: {e}")
+        raise
+    finally:
+        if cap is not None:
+            cap.release()
+            cv2.destroyAllWindows()
 
-    for (x, y, w, h) in faces:
-        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-    if output_path:
-        cv2.imwrite(output_path, image)
-        print(f"Saved: {output_path}")
-    else:
-        cv2.imshow("Detections", image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-def detect_faces_from_webcam(cascade_path, output_path=None,
-                             scale=1.2, neighbors=8, min_size=30):
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("Could not access the webcam.")
-        return
-
-    face_cascade = cv2.CascadeClassifier(cascade_path)
-
-    # Headless: capture 1 frame, annote, save, exit
-    if output_path:
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to grab frame from webcam.")
-        else:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(
-                gray, scaleFactor=scale, minNeighbors=neighbors,
-                minSize=(min_size, min_size)
-            )
-            for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.imwrite(output_path, frame)
-            print(f"Saved: {output_path}")
-        cap.release()
-        return
-
-    # GUI branch
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to grab frame from webcam.")
-            break
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+def detect_faces_in_image(image_path, output_path=None, **detection_params):
+    """Detect faces in image with proper error handling"""
+    try:
+        # Validate inputs
+        validate_image_file(image_path)
+        if output_path and not validate_output_path(output_path):
+            return None
+        
+        # Load cascade classifier
+        cascade_path = 'haarcascade_frontalface_default.xml'
+        if not os.path.exists(cascade_path):
+            raise FileNotFoundError("Haar cascade file not found. Please ensure haarcascade_frontalface_default.xml is in the current directory.")
+        
+        face_cascade = cv2.CascadeClassifier(cascade_path)
+        
+        # Load and validate image
+        image = cv2.imread(image_path)
+        if image is None:
+            raise ValueError(f"Cannot load image: {image_path}")
+        
+        # Convert to grayscale for detection
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        # Detect faces with parameters
         faces = face_cascade.detectMultiScale(
-            gray, scaleFactor=scale, minNeighbors=neighbors,
-            minSize=(min_size, min_size)
+            gray,
+            scaleFactor=detection_params.get('scale', 1.2),
+            minNeighbors=detection_params.get('neighbors', 8),
+            minSize=(detection_params.get('min_size', 30), detection_params.get('min_size', 30))
         )
+        
+        logging.info(f"Detected {len(faces)} face(s) in {image_path}")
+        
+        # Draw rectangles around faces
         for (x, y, w, h) in faces:
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        cv2.imshow("Webcam Face Detection", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-def main():
-    args = parse_arguments()
-    cascade_path = resolve_cascade(args.cascade)
-
-    if args.image:
-        detect_faces_in_image(
-            args.image, cascade_path, args.output,
-            scale=args.scale, neighbors=args.neighbors, min_size=args.min_size
-        )
-    else:
-        detect_faces_from_webcam(
-            cascade_path, args.output,
-            scale=args.scale, neighbors=args.neighbors, min_size=args.min_size
-        )
+            cv2.rectangle(image, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        
+        # Save or display result
+        if output_path:
+            cv2.imwrite(output_path, image)
+            logging.info(f"Result saved to {output_path}")
+        else:
+            cv2.imshow('Face Detection', image)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+            
+        return len(faces)
+        
+    except Exception as e:
+        logging.error(f"Face detection failed: {e}")
+        return None
+3. Safe Webcam Detection
+pythondef detect_faces_webcam():
+    """Real-time face detection with webcam"""
+    try:
+        # Inform user about camera access
+        print("Starting webcam face detection...")
+        print("Press 'q' to quit, 'f' for fullscreen, 's' to save screenshot")
+        
+        with safe_video_capture() as cap:
+            # Load cascade classifier
+            cascade_path = 'haarcascade_frontalface_default.xml'
+            face_cascade = cv2.CascadeClassifier(cascade_path)
+            
+            frame_count = 0
+            
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    logging.warning("Failed to read frame from camera")
+                    break
+                
+                # Process every 3rd frame for performance
+                frame_count += 1
+                if frame_count % 3 == 0:
+                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    faces = face_cascade.detectMultiScale(gray, 1.2, 8, minSize=(30, 30))
+                    
+                    # Draw rectangles
+                    for (x, y, w, h) in faces:
+                        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+                    
+                    # Add face count to display
+                    cv2.putText(frame, f'Faces: {len(faces)}', (10, 30), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                
+                cv2.imshow('Face Detection - Press q to quit', frame)
+                
+                # Handle key presses
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
+                    break
+                elif key == ord('s'):
+                    # Save screenshot
+                    timestamp = cv2.getTickCount()
+                    filename = f"screenshot_{timestamp}.jpg"
+                    cv2.imwrite(filename, frame)
+                    logging.info(f"Screenshot saved: {filename}")
+                    
+    except KeyboardInterrupt:
+        logging.info("Detection stopped by user")
+    except Exception as e:
+        logging.error(f"Webcam detection error: {e}")
+4. Enhanced CLI Interface
+pythondef main():
+    """Main function with improved argument parsing"""
+    parser = argparse.ArgumentParser(
+        description='Face Detection using OpenCV Haar Cascades',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  python face_detection.py --webcam
+  python face_detection.py --image photo.jpg --output result.jpg
+  python face_detection.py --image photo.jpg --scale 1.3 --neighbors 5
+        '''
+    )
+    
+    # Mode selection
+    mode_group = parser.add_mutually_exclusive_group(required=True)
+    mode_group.add_argument('--webcam', action='store_true', 
+                           help='Use webcam for real-time detection')
+    mode_group.add_argument('--image', type=str, 
+                           help='Path to input image file')
+    
+    # Parameters
+    parser.add_argument('--output', type=str, 
+                       help='Path to save output image (only for image mode)')
+    parser.add_argument('--scale', type=float, default=1.2, 
+                       help='Scale factor for detection (default: 1.2)')
+    parser.add_argument('--neighbors', type=int, default=8, 
+                       help='Minimum neighbors for detection (default: 8)')
+    parser.add_argument('--min-size', type=int, default=30, 
+                       help='Minimum face size in pixels (default: 30)')
+    parser.add_argument('--verbose', action='store_true', 
+                       help='Enable verbose logging')
+    
+    args = parser.parse_args()
+    
+    # Set logging level
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    try:
+        if args.webcam:
+            detect_faces_webcam()
+        else:
+            detection_params = {
+                'scale': args.scale,
+                'neighbors': args.neighbors,
+                'min_size': args.min_size
+            }
+            result = detect_faces_in_image(args.image, args.output, **detection_params)
+            if result is not None:
+                print(f"Detection completed. Found {result} face(s).")
+            else:
+                print("Detection failed. Check logs for details.")
+                
+    except Exception as e:
+        logging.error(f"Application error: {e}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    main()
+    exit(main())
