@@ -67,8 +67,12 @@ python face_detection.py \
 
  -Press q to exit the webcam window.
 
- 
 
+## Privacy & License
+
+**Privacy:** This application processes images locally. No data is transmitted or stored externally.
+ 
+**License:** This code is freely available for educational and research purposes.
 
 
 
